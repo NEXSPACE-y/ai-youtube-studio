@@ -9,7 +9,7 @@ from __future__ import annotations
 import io
 import struct
 import time
-from typing import Optional
+from typing import Optional, Sequence
 
 from app.config import settings
 from app.costs import CostMeter
@@ -117,20 +117,45 @@ def _media_client(location: str):
 
 
 def _veo_video(prompt: str, seconds: int,
-               image_bytes: Optional[bytes] = None) -> bytes:
-    """Veo動画生成。image_bytes指定時はその画像を起点に生成する
-    (マスコット等のキャラクター一貫性を保つフェーズ2bの参照モード)。"""
+               image_bytes: Optional[bytes] = None,
+               last_frame_bytes: Optional[bytes] = None,
+               reference_bytes: Optional[Sequence[bytes]] = None,
+               reference_type: str = "ASSET",
+               seed: Optional[int] = None) -> bytes:
+    """Veo動画生成。
+
+    - image_bytes         始点フレーム。指定時はその画像を起点に生成する
+    - last_frame_bytes    終点フレーム。始点と併せて指定すると「原画A→B」の中割りになる
+                          (docs/06 §3。生成の暴れる余地が構造的に小さくなる)
+    - reference_bytes     キャラ・画風の参照画像。カット間の一貫性を保つ
+                          reference_type は "ASSET"(被写体) か "STYLE"(画風)
+    - seed                再現性の確保
+
+    指定しなかった項目はconfigに載せない(APIの既定に委ねる)。
+    """
     from google.genai import types
 
+    def _img(data: bytes):
+        return types.Image(image_bytes=data, mime_type="image/png")
+
     client = _media_client(settings.media_region)
+    cfg: dict = {"aspect_ratio": "16:9", "duration_seconds": seconds}
+    if last_frame_bytes:
+        cfg["last_frame"] = _img(last_frame_bytes)
+    if reference_bytes:
+        cfg["reference_images"] = [
+            types.VideoGenerationReferenceImage(image=_img(b),
+                                                reference_type=reference_type)
+            for b in reference_bytes
+        ]
+    if seed is not None:
+        cfg["seed"] = seed
     kwargs = {}
     if image_bytes:
-        kwargs["image"] = types.Image(image_bytes=image_bytes,
-                                      mime_type="image/png")
+        kwargs["image"] = _img(image_bytes)
     op = client.models.generate_videos(
         model=settings.veo_model, prompt=prompt,
-        config=types.GenerateVideosConfig(aspect_ratio="16:9",
-                                          duration_seconds=seconds),
+        config=types.GenerateVideosConfig(**cfg),
         **kwargs,
     )
     while not op.done:
