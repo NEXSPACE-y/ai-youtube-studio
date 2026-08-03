@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}公開承認 - {{ p.title }}{% endblock %}
+{% block content %}
+<h1>公開承認(豆虎Gate): {{ p.title }}</h1>
+<p><a href="/projects/{{ p.id }}">← 案件詳細に戻る</a></p>
+
+<div class="cols">
+<div>
+  <div class="card">
+    <h2>完成動画</h2>
+    {% if render_asset %}
+      {% if render_asset.meta.get("format") == "mp4" %}
+        <video controls class="preview" src="{{ storage.url_for(render_asset.path) }}"></video>
+      {% else %}
+        <iframe class="preview" src="{{ storage.url_for(render_asset.path) }}"></iframe>
+      {% endif %}
+    {% endif %}
+    {% if thumb %}<h3>サムネイル案</h3><img class="thumb" src="{{ storage.url_for(thumb.path) }}">{% endif %}
+    <p class="dim">制作費: ¥{{ p.total_cost() }}</p>
+  </div>
+
+  <div class="card">
+    <h2>この動画の独自要素(要件6.4)</h2>
+    <p>{{ p.uniqueness_note or "未記入" }}</p>
+    <h2>情報源</h2>
+    <pre class="small">{{ p.publish_info.sources_text or "なし" }}</pre>
+  </div>
+</div>
+
+<div>
+  <form method="post" action="/projects/{{ p.id }}/publish_info" class="card">
+    <h2>投稿情報(修正可)</h2>
+    <label>タイトル<input name="title" value="{{ p.publish_info.title }}"></label>
+    <label>概要欄<textarea name="description" rows="12">{{ p.publish_info.description }}</textarea></label>
+    <label>タグ(カンマ区切り)<input name="tags" value="{{ p.publish_info.tags|join(', ') }}"></label>
+    <p class="dim">AI申告: {{ "必要(申告する)" if p.publish_info.ai_disclosure else "不要" }}</p>
+    <button class="ghost">投稿情報を保存</button>
+  </form>
+
+  <form method="post" action="/projects/{{ p.id }}/approval" class="card">
+    <h2>公開前チェックリスト(要件5.8)</h2>
+    {% for key, label in checklist %}
+    <label class="chk"><input type="checkbox" name="chk_{{ key }}"> {{ label }}</label>
+    {% endfor %}
+    <hr>
+    <label>差し戻し理由(差し戻す場合は必須)<input name="reason"></label>
+    <label>差し戻し先
+      <select name="rollback_to">
+        {% for t in rollback_targets %}<option {% if t == "品質確認中" %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+    </label>
+    <button name="decision" value="approve" class="primary">承認して公開する</button>
+    <button name="decision" value="reject" class="danger">差し戻す</button>
+    <p class="dim">承認記録が保存されるまで公開処理は実行されません(要件9章)。</p>
+  </form>
+</div>
+</div>
+{% endblock %}

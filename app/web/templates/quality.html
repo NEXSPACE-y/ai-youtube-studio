@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}品質確認 - {{ p.title }}{% endblock %}
+{% block content %}
+<h1>品質確認: {{ p.title }}</h1>
+<p><a href="/projects/{{ p.id }}">← 案件詳細に戻る</a></p>
+
+<div class="card">
+  <h2>完成プレビュー</h2>
+  {% if render_asset %}
+    {% if render_asset.meta.get("format") == "mp4" %}
+      <video controls class="preview" src="{{ storage.url_for(render_asset.path) }}"></video>
+    {% else %}
+      <p class="warn">{{ render_asset.meta.get("note", "") }}</p>
+      <iframe class="preview" src="{{ storage.url_for(render_asset.path) }}"></iframe>
+    {% endif %}
+    <p class="dim">想定尺: {{ render_asset.meta.get("duration_sec") }}秒 / 版 v{{ render_asset.version }}</p>
+  {% else %}
+    <p class="warn">レンダリング成果物がありません。</p>
+  {% endif %}
+</div>
+
+{% set short = p.assets | selectattr("kind", "equalto", "short") | selectattr("adopted") | list | last %}
+{% if short %}
+<details class="card">
+  <summary>Shorts切り出し案(縦型・冒頭40秒)</summary>
+  <video controls style="max-height:480px" src="{{ storage.url_for(short.path) }}"></video>
+</details>
+{% endif %}
+
+{% if subtitle_asset %}
+<details class="card">
+  <summary>字幕データ(SRT)を確認</summary>
+  <iframe class="preview short" src="{{ storage.url_for(subtitle_asset.path) }}"></iframe>
+</details>
+{% endif %}
+
+<form method="post" action="/projects/{{ p.id }}/quality" class="card">
+  <h2>確認チェックリスト(要件6章)</h2>
+  {% for key, label in checklist %}
+  <label class="chk"><input type="checkbox" name="chk_{{ key }}"> {{ label }}</label>
+  {% endfor %}
+  <hr>
+  <label>差し戻し理由(不合格の場合は必須)<input name="reason"></label>
+  <label>差し戻し先
+    <select name="rollback_to">
+      {% for t in rollback_targets %}<option {% if t == "編集中" %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+  </label>
+  <button name="decision" value="ok" class="primary">合格 — 公開承認へ</button>
+  <button name="decision" value="ng" class="danger">不合格 — 差し戻す</button>
+</form>
+{% endblock %}

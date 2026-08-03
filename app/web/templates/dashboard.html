@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>案件一覧</h1>
+
+<form method="post" action="/projects" class="card">
+  <h2>新規企画</h2>
+  <label>動画テーマのヒント
+    <input name="theme" required placeholder="例: 三菱スペースジェットはなぜ失敗したのか">
+  </label>
+  <button type="submit">企画案を生成</button>
+</form>
+
+<table class="list">
+  <tr><th>タイトル</th><th>状態</th><th>費用</th><th>更新</th></tr>
+  {% for p in projects %}
+  <tr>
+    <td><a href="/projects/{{ p.id }}">{{ p.title or p.theme }}</a></td>
+    <td><span class="badge s-{{ loop.index }}">{{ p.status }}</span></td>
+    <td>¥{{ p.total_cost() }}</td>
+    <td class="dim">{{ p.updated_at|jst }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="dim">案件はまだありません。上のフォームから企画を作成してください。</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

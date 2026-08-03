@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}分析 - {{ p.title }}{% endblock %}
+{% block content %}
+<h1>分析: {{ p.title }}</h1>
+<p><a href="/projects/{{ p.id }}">← 案件詳細に戻る</a></p>
+
+{% if data.note %}<p class="warn">{{ data.note }}</p>{% endif %}
+
+<table class="list">
+  <tr><th>指標</th><th>値</th><th>取得区分(追補6章)</th></tr>
+  {% for key, label, cat in data.metrics %}
+  <tr>
+    <td>{{ label }}</td>
+    <td>{{ data["values"].get(key, "—") }}</td>
+    <td><span class="badge">{{ data.category_label[cat] }}</span></td>
+  </tr>
+  {% endfor %}
+</table>
+<p class="dim">「—」の指標は推測値で補完しません。studio区分はYouTube Studioで目視確認してください。</p>
+{% endblock %}

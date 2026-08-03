@@ -1,0 +1,18 @@
+# 共通(ローカル・クラウド両方)
+fastapi>=0.111
+uvicorn[standard]>=0.30
+jinja2>=3.1
+python-multipart>=0.0.9
+pydantic>=2.7
+Pillow>=10.0
+requests>=2.31
+
+# クラウドモードのみ必要(ローカル検証では未インストールでも動く)
+google-genai>=1.0 ; python_version >= "3.10"
+google-cloud-firestore>=2.16
+google-cloud-storage>=2.16
+google-cloud-texttospeech>=2.16
+google-cloud-speech>=2.26
+google-api-python-client>=2.130
+google-auth>=2.29
+google-auth-oauthlib>=1.2

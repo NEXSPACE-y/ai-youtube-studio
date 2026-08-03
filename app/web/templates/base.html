@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}AI YouTube Studio{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <a class="brand" href="/">🎬 AI YouTube Studio</a>
+  <span class="user">{{ user }}</span>
+</header>
+{% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

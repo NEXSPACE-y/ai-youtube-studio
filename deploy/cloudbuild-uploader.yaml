@@ -1,0 +1,11 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - "-f"
+      - uploader/Dockerfile
+      - "-t"
+      - asia-northeast1-docker.pkg.dev/$PROJECT_ID/studio/uploader:latest
+      - .
+images:
+  - asia-northeast1-docker.pkg.dev/$PROJECT_ID/studio/uploader:latest

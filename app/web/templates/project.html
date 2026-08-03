@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}{{ p.title }} - AI YouTube Studio{% endblock %}
+{% block content %}
+<h1>{{ p.title or p.theme }}</h1>
+<p>
+  <span class="badge">{{ p.status }}</span>
+  <span class="dim">費用 ¥{{ p.total_cost() }} / 上限 ¥{{ p.cost_limit_jpy }}{% if p.cost_limit_override_approved %}(超過承認済み){% endif %}</span>
+</p>
+
+{% if p.cost_stop_reason %}
+<div class="warn">
+  ⚠ {{ p.cost_stop_reason }}
+  <form method="post" action="/projects/{{ p.id }}/cost_override" class="inline">
+    <button>上限超過を承認して続行可能にする</button>
+  </form>
+</div>
+{% endif %}
+
+{# ---- 工程ごとの操作 ---- #}
+{% if p.status == "企画中" %}
+<div class="card">
+  <h2>企画(採否は人間が判断)</h2>
+  <p>{{ p.planning.get("theme_summary", "") }}</p>
+  <p><b>想定視聴者:</b> {{ p.audience }}<br><b>目的:</b> {{ p.purpose }}<br>
+     <b>独自の切り口:</b> {{ p.uniqueness_note }}</p>
+  {% if p.planning.get("duplicate_warnings") %}
+  <p class="warn">類似タイトルの既存案件があります: {{ p.planning.duplicate_warnings|join(" / ") }}</p>
+  {% endif %}
+  <h3>タイトル候補</h3>
+  {% for t in p.planning.get("title_candidates", []) %}
+  <form method="post" action="/projects/{{ p.id }}/title" class="inline">
+    <input type="hidden" name="title" value="{{ t }}">
+    <button class="ghost">{{ "✔ " if t == p.title else "" }}{{ t }}</button>
+  </form><br>
+  {% endfor %}
+  <hr>
+  <form method="post" action="/projects/{{ p.id }}/decide" class="inline">
+    <button name="decision" value="採用" class="primary">採用して調査へ</button>
+    <button name="decision" value="保留">保留</button>
+    <button name="decision" value="却下" class="danger">却下</button>
+  </form>
+</div>
+{% endif %}
+
+{% if p.status == "調査中" %}
+<div class="card">
+  <h2>リサーチ</h2>
+  {% if not p.research %}
+  <form method="post" action="/projects/{{ p.id }}/research">
+    <button class="primary">リサーチ実行</button>
+  </form>
+  {% else %}
+  <table class="list">
+    <tr><th>区分</th><th>内容</th><th>情報源</th></tr>
+    {% for item in p.research %}
+    <tr>
+      <td><span class="badge k-{{ item.kind }}">{{ {"fact":"事実","inference":"推測","creative":"演出"}.get(item.kind, item.kind) }}</span></td>
+      <td>{% if item.topic %}<b class="dim">【{{ item.topic }}】</b> {% endif %}{{ item.text }}</td>
+      <td>{% for s in item.sources %}<a href="{{ s.url }}" target="_blank" rel="noopener">{{ s.title or s.url }}</a><br>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <form method="post" action="/projects/{{ p.id }}/research" class="inline"><button class="ghost">再リサーチ</button></form>
+  <form method="post" action="/projects/{{ p.id }}/to_script" class="inline">
+    <button class="primary">情報源を確認した — 台本作成へ</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if p.status == "台本作成中" and p.script %}
+<div class="card">
+  <h2>台本の作り直し</h2>
+  {% set last_reject = (p.approvals | selectattr("stage", "equalto", "台本確認") | selectattr("decision", "equalto", "rejected") | list | last) %}
+  {% if last_reject %}<p class="warn">差し戻し理由: {{ last_reject.reason }}</p>{% endif %}
+  <form method="post" action="/projects/{{ p.id }}/regenerate_script" class="inline">
+    <button class="primary">差し戻し理由を反映して再生成</button>
+  </form>
+  <form method="post" action="/projects/{{ p.id }}/state" class="inline">
+    <input type="hidden" name="target" value="台本確認待ち">
+    <input type="hidden" name="reason" value="手動修正のみで確認へ">
+    <button class="ghost">再生成せず、この台本のまま確認へ戻す</button>
+  </form>
+  <p class="dim">下の各節を直接編集して保存 →「この台本のまま確認へ戻す」でもOK。</p>
+</div>
+{% endif %}
+
+{% if p.script and p.status in ("台本作成中", "台本確認待ち") %}
+<div class="card">
+  <h2>台本{% if p.status == "台本確認待ち" %}(確認待ち — 修正可){% endif %}</h2>
+  {% for sec in p.script %}
+  <details {% if loop.first %}open{% endif %}>
+    <summary><b>{{ sec.name }}</b> <span class="dim">{{ sec.narration|length }}字 / {{ sec.visual_direction }}</span></summary>
+    <form method="post" action="/projects/{{ p.id }}/script_edit">
+      <input type="hidden" name="key" value="{{ sec.key }}">
+      <label>ナレーション<textarea name="narration" rows="4">{{ sec.narration }}</textarea></label>
+      <label>画面表示テキスト<input name="on_screen_text" value="{{ sec.on_screen_text }}"></label>
+      <button class="ghost">この節を保存</button>
+    </form>
+  </details>
+  {% endfor %}
+  {% if p.status == "台本確認待ち" %}
+  <hr>
+  <form method="post" action="/projects/{{ p.id }}/script_decision">
+    <label>コメント・差し戻し理由<input name="reason" placeholder="差し戻す場合は必須"></label>
+    <button name="decision" value="approve" class="primary">台本を承認(映像構成へ)</button>
+    <button name="decision" value="reject" class="danger">差し戻し(台本再作成)</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if p.status == "素材生成中" %}
+<div class="card">
+  <h2>映像構成と素材生成</h2>
+  {% if p.scenes %}<p>{{ p.scenes|length }}シーン / AI動画シーン {{ p.scenes|selectattr("type", "equalto", "ai_video")|list|length }}件(コスト抑制方針: 追補2章)</p>{% endif %}
+  <form method="post" action="/projects/{{ p.id }}/generate_assets" class="inline">
+    <button class="primary">素材生成を実行{% if p.assets %}(未生成分のみ){% endif %}</button>
+  </form>
+  {% if p.assets %}
+  <form method="post" action="/projects/{{ p.id }}/render" class="inline">
+    <button>編集(レンダリング)へ進む</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if p.scenes and p.status in ("素材生成中", "編集中", "品質確認中", "公開承認待ち", "投稿済み") %}
+<div class="card">
+  <h2>シーンと素材</h2>
+  {% if p.status in ("素材生成中", "編集中", "品質確認中") %}
+  <form method="post" action="/projects/{{ p.id }}/regenerate_images" class="inline"
+        onsubmit="return confirm('画像系素材を無効化して作り直します。音声・BGMは保持されます。よろしいですか?')">
+    <label class="chk"><input type="checkbox" name="replace_video" value="1">
+      AI動画シーンも静止画に置き換える(Veo費用をかけずに差し替え)</label>
+    <button class="ghost danger">画像を作り直す(音声・BGMは保持)</button>
+  </form>
+  {% endif %}
+  <div class="scenes">
+    {% for sc in p.scenes %}
+    {% set visual = find_asset(p, "assets", sc.no, "video") or find_asset(p, "assets", sc.no, "image") %}
+    {% set narr = find_asset(p, "assets", sc.no, "narration") %}
+    <div class="scene">
+      <b>#{{ "%02d"|format(sc.no) }}</b> <span class="badge">{{ sc.type }}</span>
+      <span class="dim">{{ sc.audio_duration_sec or sc.duration_sec }}秒</span>
+      {% if visual %}
+        {% if visual.kind == "image" %}<img src="{{ storage.url_for(visual.path) }}" loading="lazy">
+        {% else %}<video controls preload="none" src="{{ storage.url_for(visual.path) }}"></video>{% endif %}
+      {% endif %}
+      <p class="small">{{ sc.narration[:60] }}{% if sc.narration|length > 60 %}…{% endif %}</p>
+      {% if narr %}<audio controls preload="none" src="{{ storage.url_for(narr.path) }}"></audio>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if p.status == "編集中" %}
+<div class="card">
+  <h2>編集(レンダリング)</h2>
+  <form method="post" action="/projects/{{ p.id }}/render">
+    <button class="primary">レンダリングを実行(図解モーション反映)</button>
+  </form>
+</div>
+{% endif %}
+
+{% if p.status == "品質確認中" %}
+<div class="card">
+  <h2>品質確認</h2>
+  <a class="button primary" href="/projects/{{ p.id }}/quality">品質確認画面を開く</a>
+</div>
+{% endif %}
+
+{% if p.status == "公開承認待ち" %}
+<div class="card">
+  <h2>公開承認(豆虎Gate)</h2>
+  <a class="button primary" href="/projects/{{ p.id }}/approval">公開承認画面を開く</a>
+</div>
+{% endif %}
+
+{% if p.status == "投稿済み" %}
+<div class="card">
+  <h2>投稿済み</h2>
+  <p>動画ID: {{ p.publish_info.youtube_video_id }}</p>
+  <a class="button" href="/projects/{{ p.id }}/analytics">分析を見る</a>
+  <form method="post" action="/projects/{{ p.id }}/state" class="inline">
+    <input type="hidden" name="target" value="修正必要">
+    <input name="reason" placeholder="問題の内容" required>
+    <button class="danger">問題発生 — 修正必要へ</button>
+  </form>
+</div>
+{% endif %}
+
+{% if p.status in ("修正必要", "保留") %}
+<div class="card">
+  <h2>{{ p.status }} — 工程へ戻す</h2>
+  <form method="post" action="/projects/{{ p.id }}/state">
+    <label>戻す工程
+      <select name="target">
+        {% for t in states.TRANSITIONS[p.status] %}<option>{{ t }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>理由<input name="reason" required></label>
+    <button class="primary">実行</button>
+  </form>
+</div>
+{% endif %}
+
+{# ---- 共通操作・記録 ---- #}
+{% if p.status not in ("保留", "中止", "投稿済み", "修正必要") %}
+<form method="post" action="/projects/{{ p.id }}/state" class="inline">
+  <input type="hidden" name="target" value="保留"><button class="ghost">保留にする</button>
+</form>
+<form method="post" action="/projects/{{ p.id }}/state" class="inline">
+  <input type="hidden" name="target" value="中止"><button class="ghost danger">中止する</button>
+</form>
+{% endif %}
+
+<details class="card">
+  <summary>計測レポート(要件14章)</summary>
+  <table class="list">
+    <tr><td>累計制作費</td><td>¥{{ metrics.total }}</td></tr>
+    {% for svc, amount in metrics.by_service.items() %}
+    <tr><td class="dim">└ {{ svc }}</td><td class="dim">¥{{ amount }}</td></tr>
+    {% endfor %}
+    <tr><td>AI動画生成秒数</td><td>{{ metrics.veo_seconds }}秒</td></tr>
+    <tr><td>不採用素材数</td><td>{{ metrics.rejected_assets }}件</td></tr>
+    <tr><td>再生成された素材数</td><td>{{ metrics.regenerated }}件</td></tr>
+    <tr><td>承認記録 / 差し戻し</td><td>{{ metrics.approvals }}回 / {{ metrics.rollbacks }}回</td></tr>
+    <tr><td>企画作成からの経過時間</td><td>{{ metrics.elapsed_hours }}時間</td></tr>
+  </table>
+</details>
+
+<details class="card">
+  <summary>コスト内訳({{ p.costs|length }}件 / 累計 ¥{{ p.total_cost() }})</summary>
+  <table class="list">
+    <tr><th>サービス</th><th>数量</th><th>費用</th><th>工程</th><th>日時</th></tr>
+    {% for c in p.costs %}
+    <tr><td>{{ c.service }}</td><td>{{ c.quantity }}</td><td>¥{{ c.cost_jpy }}</td>
+        <td>{{ c.stage }}</td><td class="dim">{{ c.at|jst }}</td></tr>
+    {% endfor %}
+  </table>
+</details>
+
+<details class="card">
+  <summary>履歴・承認・差し戻し記録</summary>
+  <h3>承認記録</h3>
+  <ul>{% for a in p.approvals %}
+    <li>[{{ a.decided_at|jst }}] {{ a.stage }}: <b>{{ a.decision }}</b> by {{ a.approver }} {{ a.reason }}</li>
+  {% endfor %}</ul>
+  <h3>差し戻し記録</h3>
+  <ul>{% for r in p.rollbacks %}
+    <li>[{{ r.at|jst }}] {{ r.from_status }} → {{ r.to_status }}: {{ r.reason }}
+        <span class="dim">(無効化 {{ r.invalidated_assets|length }}件 / 再利用可 {{ r.reusable_assets|length }}件)</span></li>
+  {% endfor %}</ul>
+  <h3>操作履歴</h3>
+  <ul>{% for h in p.history|reverse %}
+    <li class="dim">[{{ h.at|jst }}] {{ h.action }} ({{ h.actor }}) {{ h.note }}</li>
+  {% endfor %}</ul>
+</details>
+{% endblock %}
