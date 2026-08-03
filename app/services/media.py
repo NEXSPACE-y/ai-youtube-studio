@@ -49,7 +49,8 @@ def _font(size: int):
     from PIL import ImageFont
 
     for path in (r"C:\Windows\Fonts\meiryo.ttc", r"C:\Windows\Fonts\msgothic.ttc",
-                 "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"):
+                 "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                 "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"):
         try:
             return ImageFont.truetype(path, size)
         except OSError:

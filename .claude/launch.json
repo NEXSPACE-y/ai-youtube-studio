@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "studio",
-      "runtimeExecutable": "python",
+      "runtimeExecutable": ".venv/bin/python",
       "runtimeArgs": ["run_local.py"],
       "port": 8080
     }

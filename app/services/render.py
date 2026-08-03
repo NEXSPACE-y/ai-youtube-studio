@@ -73,6 +73,7 @@ _CJK_FONTS = (
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
     r"C:\Windows\Fonts\meiryo.ttc",
+    "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
 )
 
 
