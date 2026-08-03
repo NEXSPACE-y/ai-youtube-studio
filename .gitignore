@@ -8,3 +8,4 @@ venv/
 .pytest_cache/
 client_secret*.json
 token*.json
+.DS_Store
