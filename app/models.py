@@ -42,12 +42,20 @@ class ScriptSection(BaseModel):
 class Scene(BaseModel):
     no: int
     section_key: str = ""
-    type: str = "still_motion"  # ai_video | still_motion | diagram | text
+    type: str = "still_motion"  # ai_video | still_motion | diagram | text | genga_interp
     duration_sec: float = 5.0
     narration: str = ""
     visual_prompt: str = ""
     audio_duration_sec: float = 0.0  # TTS後に確定
     speaker: str = ""  # 話者(キャラ毎の固定声で読み上げる)
+    # 絵コンテ駆動(docs/09)。type=genga_interp のカットで使う
+    # cast は「画面に映るキャラ」で speaker(喋るキャラ)とは別概念。
+    # ツヅリのように映るが喋らないキャラがいるため分けている(docs/07)
+    cast: list[str] = Field(default_factory=list)
+    acting: str = ""  # 演技指示(日本語)「栞が顔を上げて手を振る」
+    camera: str = ""  # カメラワーク「slow push-in」など
+    keyframe_a_prompt: str = ""  # 原画Aの生成指示
+    keyframe_b_prompt: str = ""  # 原画Bの生成指示(原画Aからの差分として書く)
     # 図解モーションエンジンの表示指定(演出プランナーが生成)
     # 例: {"template": "bullets", "title": "...", "items": ["...", "..."]}
     display: dict = Field(default_factory=dict)
