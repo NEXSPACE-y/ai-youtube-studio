@@ -47,6 +47,12 @@ def test_未指定なら余計なパラメータを載せない(monkeypatch):
     assert cfg.seed is None
 
 
+def test_音声は既定で生成しない(monkeypatch):
+    # render.py が `-map 0:v -map 1:a` で音声をTTSから取るため、Veoの音声は捨てられる
+    assert _call(monkeypatch)["config"].generate_audio is False
+    assert _call(monkeypatch, generate_audio=True)["config"].generate_audio is True
+
+
 def test_始点のみ指定は従来どおり(monkeypatch):
     captured = _call(monkeypatch, image_bytes=b"A")
     assert captured["image"].image_bytes == b"A"

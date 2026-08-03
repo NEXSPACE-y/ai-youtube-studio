@@ -121,7 +121,8 @@ def _veo_video(prompt: str, seconds: int,
                last_frame_bytes: Optional[bytes] = None,
                reference_bytes: Optional[Sequence[bytes]] = None,
                reference_type: str = "ASSET",
-               seed: Optional[int] = None) -> bytes:
+               seed: Optional[int] = None,
+               generate_audio: bool = False) -> bytes:
     """Veo動画生成。
 
     - image_bytes         始点フレーム。指定時はその画像を起点に生成する
@@ -130,6 +131,9 @@ def _veo_video(prompt: str, seconds: int,
     - reference_bytes     キャラ・画風の参照画像。カット間の一貫性を保つ
                           reference_type は "ASSET"(被写体) か "STYLE"(画風)
     - seed                再現性の確保
+    - generate_audio      既定False。編集(render.py)は `-map 0:v -map 1:a` で
+                          映像だけをクリップから取り、音声はTTSナレーションを使う。
+                          Veoの音声は完成mp4に入らないため、生成しない
 
     指定しなかった項目はconfigに載せない(APIの既定に委ねる)。
     """
@@ -139,7 +143,8 @@ def _veo_video(prompt: str, seconds: int,
         return types.Image(image_bytes=data, mime_type="image/png")
 
     client = _media_client(settings.media_region)
-    cfg: dict = {"aspect_ratio": "16:9", "duration_seconds": seconds}
+    cfg: dict = {"aspect_ratio": "16:9", "duration_seconds": seconds,
+                 "generate_audio": generate_audio}
     if last_frame_bytes:
         cfg["last_frame"] = _img(last_frame_bytes)
     if reference_bytes:
